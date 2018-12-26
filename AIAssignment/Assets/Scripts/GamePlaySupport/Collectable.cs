@@ -8,6 +8,12 @@ using UnityEngine;
 /// </summary>
 public abstract class Collectable : MonoBehaviour
 {
+     private Vector3 startingPosition;
+
+    private void Start()
+    {
+        startingPosition = transform.position;
+    }
     /// <summary>
     /// An AI agent collects an object
     /// </summary>
@@ -34,10 +40,10 @@ public abstract class Collectable : MonoBehaviour
     public virtual void Drop(AgentData agentData, Vector3 position)
     {
         gameObject.transform.parent = null;
-        gameObject.transform.position = position;
-
         gameObject.GetComponent<BoxCollider>().enabled = true;
         gameObject.GetComponent<MeshRenderer>().enabled = true;
         gameObject.layer = LayerMask.NameToLayer("VisibleToAI");
+        gameObject.transform.position = position;
+
     }
 }

@@ -26,6 +26,7 @@ public class SetScore : MonoBehaviour
         {
             _enemyFlagInBase = true;
             StartCoroutine(UpdateScore());
+            
         }
     }
 

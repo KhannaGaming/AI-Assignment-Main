@@ -90,7 +90,6 @@ public class AgentActions : MonoBehaviour
         if (TestDestination(target, out destination))
         {
             _navAgent.destination = destination;
-            testdest = destination;
             return true;
         }
 
@@ -181,6 +180,34 @@ public class AgentActions : MonoBehaviour
     }
 
     /// <summary>
+    /// Drop an item stored in the inventory onto the ground
+    /// A dropped item becomes visible and collectable
+    /// </summary>
+    /// <param name="item">The item to drop</param>
+    /// <param name="position">The position to drop the item</param>
+    public void DropItem(GameObject item, Vector3 position)
+    {
+        // Check we actually have it and its collectable
+        if (_agentInventory.HasItem(item.name) && item.GetComponent<Collectable>() != null)
+        {
+            // Check just in front of us that we're not dropping inside an obstacle
+            Vector3 targetPoint = gameObject.transform.position + gameObject.transform.forward;
+            // Make sure we're testing a position on the ground
+            targetPoint.y = 1.0f;
+
+            Vector3 dropPosition;
+            if (TestDestination(targetPoint, out dropPosition))
+            {
+                // Make sure we keep the original y position of the item
+                dropPosition.y = item.transform.position.y;
+                _agentInventory.RemoveItem(item.name);
+
+                item.GetComponent<Collectable>().Drop(_agentData, position);
+            }
+        }
+    }
+
+    /// <summary>
     /// Drop every item in the inventory
     /// </summary>
     public void DropAllItems()
@@ -251,7 +278,7 @@ public class AgentActions : MonoBehaviour
     public bool IsAtDestination()
     {
 
-        if(_navAgent.remainingDistance <= 0.1f)
+        if(_navAgent.remainingDistance <= 0.5f)
         {
             return true;
         }

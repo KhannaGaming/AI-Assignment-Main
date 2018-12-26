@@ -1,6 +1,5 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
-using MonteCarloTree;
 
 /*****************************************************************************************************************************
  * Write your core AI code in this file here. The private variable 'agentScript' contains all the agents actions which are listed
@@ -83,6 +82,7 @@ using MonteCarloTree;
 
 public class AI : MonoBehaviour
 {
+    enum NodeOptions { Nothing, RandomMovement, HealthKit, PowerUp, haveEnemyFlag, dontHaveEnemyFlag, FriendlyFlag, FriendlyBase };
     // Gives access to important data about the AI agent (see above)
     private AgentData _agentData;
     // Gives access to the agent senses
@@ -92,35 +92,100 @@ public class AI : MonoBehaviour
     // This is the script containing the AI agents actions
     // e.g. agentScript.MoveTo(enemy);
     private AgentActions _agentActions;
-
-    private int maxActionsPossible= 6;
+    private MonteCarloTree.Tree MCTree = new MonteCarloTree.Tree();
+    private MonteCarloTree.Node rootNode = new MonteCarloTree.Node();
+    private MonteCarloTree.Node currentNode;
+    private NodeOptions nodeOptions = NodeOptions.Nothing;
+    private Vector3 startingPostion;
     // Use this for initialization
-    void Start ()
+    void Start()
     {
         // Initialise the accessable script components
         _agentData = GetComponent<AgentData>();
         _agentActions = GetComponent<AgentActions>();
         _agentSenses = GetComponentInChildren<Sensing>();
         _agentInventory = GetComponentInChildren<InventoryController>();
+        currentNode = rootNode;
+        rootNode.VisitCount = 1;
+        startingPostion = transform.position;
+        // nodeOptions = NodeOptions.Nothing;
     }
 
     // Update is called once per frame
-    void Update ()
+    void Update()
     {
-        bool a = false;
-        // Run your AI code in here
-        if (a == false)
+        if (_agentActions.IsAtDestination())
         {
-            ChooseRandomAction();
-            a = true;
+            int option = ChooseRandomAction();
+
+            if (!currentNode.checkChildren(option))
+            {
+                MonteCarloTree.Node nodeToAdd = new MonteCarloTree.Node();
+                nodeToAdd.NodeOption = option;
+                currentNode.AddChild(nodeToAdd);
+
+                MonteCarloTree.Node highestUCBNode;
+                float highestUCB = 0.0f;
+                for (int i = 0; i < currentNode.GetNumberOfChildren(); i++)
+                {
+                    float UCB = UpperConfidenceBound(currentNode.GetChild(i));
+                    if (highestUCB < UCB)
+                    {
+                        highestUCBNode = currentNode.GetChild(i);
+                    }
+                }
+                currentNode = nodeToAdd;
+                currentNode.VisitCount = currentNode.VisitCount + 1;
+            }
+        }
+        if (this.tag == Tags.BlueTeam)
+        {
+            GameObject ObjectToCheck = _agentSenses.GetObjectInViewByName(Names.RedFlag);
+
+            if (ObjectToCheck != null)
+            {
+                // _agentActions.MoveTo(ObjectToCheck);
+                if (_agentSenses.IsItemInReach(ObjectToCheck))
+                {
+                    _agentActions.CollectItem(ObjectToCheck);
+                }
+            }
+
+            if (_agentData.HasEnemyFlag)
+            {
+
+                if (Vector3.Distance(transform.position, _agentData.FriendlyBase.transform.position) <= 5.0f)
+                {
+                    _agentActions.DropItem(_agentInventory.GetItem(Names.RedFlag), new Vector3(0.5f, 1.0f, 21.4f));
+                    MonteCarloTree.Node parentNode = currentNode.ParentNode;
+
+                    do
+                    {
+                        currentNode.WinCount = currentNode.WinCount + 1;
+                        currentNode = parentNode;
+                    } while (parentNode != null);
+                    currentNode = rootNode;
+                    currentNode.VisitCount = currentNode.VisitCount + 1;
+                    ResetPosition();
+                    Debug.Log("win");
+                    MCTree.Traverse(rootNode);
+                }
+
+
+            }
+        }
+
+        if (Input.GetKeyDown("e"))
+        {
+            MCTree.Traverse(rootNode);
         }
     }
-    //float CalculateUpperConfidenceBound(ActionToTake action)
-    //{
-    //    var UCT = 0.0f;
-    //    UCT = (action.winsFromThisNode/action.numTimesVisited)+(action.balanceValue*Mathf.Sqrt(Mathf.log)
-    //    return UCT;
-    //}
+
+    private float UpperConfidenceBound(MonteCarloTree.Node node)
+    {
+        float UCB = (node.WinCount / node.VisitCount) + (0.5f * Mathf.Sqrt(Mathf.Log(node.ParentNode.VisitCount) / node.VisitCount));
+        return UCB;
+    }
 
     public int ChooseRandomAction()
     {
@@ -128,23 +193,30 @@ public class AI : MonoBehaviour
         do
         {
             List<GameObject> objectsInView = _agentSenses.GetObjectsInView();
-            int action = Random.Range(1, 4);
-            switch(action)
+            int action = Random.Range(0, 5) + 1;
+            switch (action)
             {
                 case 1:
                     // Do we have the enemy flag
                     if (!_agentData.HasEnemyFlag)
                     {
-                        _agentActions.MoveTo(_agentData.EnemyBase);
+                        if (this.tag == Tags.BlueTeam)
+                        {
+                            _agentActions.MoveTo(GameObject.Find(Names.RedFlag).transform.position);
+                        }
+                        else if (this.tag == Tags.RedTeam)
+                        {
+                            _agentActions.MoveTo(GameObject.Find(Names.BlueFlag).transform.position);
+                        }
                         chosenAction = 1;
                     }
                     break;
 
-               case 2:
+                case 2:
                     if (_agentData.HasEnemyFlag)
-                    {                        
+                    {
                         _agentActions.MoveTo(_agentData.FriendlyBase);
-                        chosenAction = 2;                    
+                        chosenAction = 2;
                     }
                     break;
 
@@ -175,12 +247,68 @@ public class AI : MonoBehaviour
                         }
                     }
                     break;
-                        default:
+
+                case 5:
+                    _agentActions.MoveToRandomLocation();
+                    chosenAction = 5;
+                    break;
+
+                default:
                     break;
             }
 
         } while (chosenAction == 0);
         return chosenAction;
+    }
+
+    public void ResetPosition()
+    {
+        foreach (GameObject item in GameObject.FindGameObjectsWithTag(Tags.BlueTeam))
+        {
+            item.transform.position = item.GetComponent<AI>().startpostion();
+        }
+        foreach (GameObject item in GameObject.FindGameObjectsWithTag(Tags.RedTeam))
+        {
+            item.transform.position = item.GetComponent<AI>().startpostion();
+        }
+    }
+
+    public Vector3 startpostion()
+    {
+        if (_agentData.HasEnemyFlag)
+        {
+            if (this.tag == Tags.BlueTeam)
+            {
+                _agentActions.DropItem(_agentInventory.GetItem(Names.RedFlag), new Vector3(0.5f, 1.0f, 21.4f));
+            }
+            if (this.tag == Tags.RedTeam)
+            {
+                _agentActions.DropItem(_agentInventory.GetItem(Names.BlueFlag), new Vector3(0.18f, 1.0f, -22.11f));
+            }
+        }
+
+        if(_agentData.HasFriendlyFlag)
+        {
+            if (this.tag == Tags.BlueTeam)
+            {
+                _agentActions.DropItem(_agentInventory.GetItem(Names.BlueFlag), new Vector3(0.18f, 1.0f, -22.11f));
+            }
+            if (this.tag == Tags.RedTeam)
+            {
+                _agentActions.DropItem(_agentInventory.GetItem(Names.RedFlag), new Vector3(0.5f, 1.0f, 21.4f));
+            }
+        }
+
+        if(_agentInventory.HasItem(Names.HealthKit))
+        {
+            _agentActions.DropItem(_agentInventory.GetItem(Names.HealthKit));
+        }
+
+        if (_agentInventory.HasItem(Names.PowerUp))
+        {
+            _agentActions.DropItem(_agentInventory.GetItem(Names.PowerUp));
+        }
+        return startingPostion; 
     }
 
 }

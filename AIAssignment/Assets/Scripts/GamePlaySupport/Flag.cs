@@ -8,7 +8,7 @@ public class Flag : Collectable
 {
     // how much to raise the flag when carrying it
     private const float flagRaiseAmount = 1;
-
+   
     /// <summary>
     /// An AI agent collects the flag
     /// </summary>
@@ -39,10 +39,15 @@ public class Flag : Collectable
 
         // no longer raised
         Vector3 flagPosition = position;
-        flagPosition.y -= flagRaiseAmount;
+       // flagPosition.y -= flagRaiseAmount;
         gameObject.transform.position = flagPosition;
-
         // Becomes visible to AIs and they know it's not carried
         gameObject.layer = LayerMask.NameToLayer("VisibleToAI");
     }
+
+    public void ResetPosition()
+    {
+        gameObject.transform.position = new Vector3(0.5f, 1.0f, 21.4f);
+    }
+  
 }

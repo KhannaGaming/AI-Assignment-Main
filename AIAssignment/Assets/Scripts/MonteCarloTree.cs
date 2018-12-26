@@ -3,8 +3,16 @@ using System.Collections.Generic;
 
 namespace MonteCarloTree
 {
+    enum NodeOptions { Nothing, RandomMovement, HealthKit, PowerUp, haveEnemyFlag, dontHaveEnemyFlag, FriendlyFlag, FriendlyBase };
+
     public class Node
     {
+        private NodeOptions thisNodeOption = NodeOptions.Nothing;
+        public int NodeOption
+        {
+            get { return (int)thisNodeOption; }
+            set { thisNodeOption = (NodeOptions)value; }
+        }
 
         private Node parentNode;
         public Node Parent
@@ -14,7 +22,7 @@ namespace MonteCarloTree
         }
 
         private List<Node> childNodes;
-
+        
         private int visitCount = 0;
         public int VisitCount
         {
@@ -34,6 +42,22 @@ namespace MonteCarloTree
             childNodes = new List<Node>();
         }
 
+        public void AddChild(Node newChild)
+        {
+            newChild.Parent = this;
+            childNodes.Add(newChild);
+        }
+        public bool checkChildren(int nodeOption)
+        {
+            for (int i = 0; i < childNodes.Count; i++)
+            {
+                if(childNodes[i].NodeOption == nodeOption)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
         public Node ParentNode
         {
             get { return parentNode; }
@@ -46,14 +70,8 @@ namespace MonteCarloTree
 
         public Node GetChild(int index)
         {
-            if (index > 0 && index < childNodes.Count)
-            {
-                return childNodes[index];
-            }
-
-            return null;
+            return childNodes[index];            
         }
-
         public Node GetRandomChild()
         {
             if (childNodes.Count > 0)
@@ -84,9 +102,10 @@ namespace MonteCarloTree
                 for (int i = 0; i < numberOfChildNodes; i++)
                 {
                     Node childToTraverse = currentNode.GetChild(i);
-                    Traverse(childToTraverse);
+                        Traverse(childToTraverse);
                 }
             }
+            UnityEngine.Debug.Log(currentNode);
         }
 
     }
