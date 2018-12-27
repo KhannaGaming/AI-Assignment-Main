@@ -82,7 +82,7 @@ using UnityEngine;
 
 public class AI : MonoBehaviour
 {
-    enum NodeOptions { Nothing, RandomMovement, HealthKit, PowerUp, haveEnemyFlag, dontHaveEnemyFlag, FriendlyFlag, FriendlyBase };
+    enum NodeOptions { Nothing,dontHaveEnemyFlag, haveEnemyFlag,   HealthKit, PowerUp,RandomMovement, FriendlyFlag};
     // Gives access to important data about the AI agent (see above)
     private AgentData _agentData;
     // Gives access to the agent senses
@@ -97,6 +97,10 @@ public class AI : MonoBehaviour
     private MonteCarloTree.Node currentNode;
     private NodeOptions nodeOptions = NodeOptions.Nothing;
     private Vector3 startingPostion;
+    private bool hasWon = false;
+    public float ExplorationFactor = 0.5f;
+
+    private bool inBattle = false;
     // Use this for initialization
     void Start()
     {
@@ -106,7 +110,6 @@ public class AI : MonoBehaviour
         _agentSenses = GetComponentInChildren<Sensing>();
         _agentInventory = GetComponentInChildren<InventoryController>();
         currentNode = rootNode;
-        rootNode.VisitCount = 1;
         startingPostion = transform.position;
         // nodeOptions = NodeOptions.Nothing;
     }
@@ -114,76 +117,41 @@ public class AI : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        if (_agentActions.IsAtDestination())
+        if(Input.GetKeyDown("e"))
         {
-            int option = ChooseRandomAction();
-
-            if (!currentNode.checkChildren(option))
-            {
-                MonteCarloTree.Node nodeToAdd = new MonteCarloTree.Node();
-                nodeToAdd.NodeOption = option;
-                currentNode.AddChild(nodeToAdd);
-
-                MonteCarloTree.Node highestUCBNode;
-                float highestUCB = 0.0f;
-                for (int i = 0; i < currentNode.GetNumberOfChildren(); i++)
-                {
-                    float UCB = UpperConfidenceBound(currentNode.GetChild(i));
-                    if (highestUCB < UCB)
-                    {
-                        highestUCBNode = currentNode.GetChild(i);
-                    }
-                }
-                currentNode = nodeToAdd;
-                currentNode.VisitCount = currentNode.VisitCount + 1;
-            }
+            Time.timeScale += 1.0f;
+           //_agentData.Die();
         }
-        if (this.tag == Tags.BlueTeam)
+        if (Input.GetKeyDown("r"))
         {
-            GameObject ObjectToCheck = _agentSenses.GetObjectInViewByName(Names.RedFlag);
-
-            if (ObjectToCheck != null)
-            {
-                // _agentActions.MoveTo(ObjectToCheck);
-                if (_agentSenses.IsItemInReach(ObjectToCheck))
-                {
-                    _agentActions.CollectItem(ObjectToCheck);
-                }
-            }
-
-            if (_agentData.HasEnemyFlag)
-            {
-
-                if (Vector3.Distance(transform.position, _agentData.FriendlyBase.transform.position) <= 5.0f)
-                {
-                    _agentActions.DropItem(_agentInventory.GetItem(Names.RedFlag), new Vector3(0.5f, 1.0f, 21.4f));
-                    MonteCarloTree.Node parentNode = currentNode.ParentNode;
-
-                    do
-                    {
-                        currentNode.WinCount = currentNode.WinCount + 1;
-                        currentNode = parentNode;
-                    } while (parentNode != null);
-                    currentNode = rootNode;
-                    currentNode.VisitCount = currentNode.VisitCount + 1;
-                    ResetPosition();
-                    Debug.Log("win");
-                    MCTree.Traverse(rootNode);
-                }
-
-
-            }
+            Time.timeScale = 1.0f;
         }
 
-        if (Input.GetKeyDown("e"))
-        {
-            MCTree.Traverse(rootNode);
-        }
+
+        
+            if (!inBattle && _agentActions.IsAtDestination())
+            {
+                SelectionAndExpantion();
+                Simulation((int)nodeOptions);
+            }
+       
+        Checks();
+        Battle();
+       
     }
 
     private float UpperConfidenceBound(MonteCarloTree.Node node)
     {
-        float UCB = (node.WinCount / node.VisitCount) + (0.5f * Mathf.Sqrt(Mathf.Log(node.ParentNode.VisitCount) / node.VisitCount));
+        float UCB = 0.0f;
+        
+        if (node.VisitCount > 0)
+        {
+            UCB = (node.WinCount / node.VisitCount) + (ExplorationFactor * Mathf.Sqrt(Mathf.Log(node.ParentNode.VisitCount) / node.VisitCount));
+        }
+        else
+        {
+            UCB = int.MaxValue;
+        }
         return UCB;
     }
 
@@ -193,21 +161,13 @@ public class AI : MonoBehaviour
         do
         {
             List<GameObject> objectsInView = _agentSenses.GetObjectsInView();
-            int action = Random.Range(0, 5) + 1;
+            int action = Random.Range(0, 6) + 1;
             switch (action)
             {
                 case 1:
                     // Do we have the enemy flag
                     if (!_agentData.HasEnemyFlag)
                     {
-                        if (this.tag == Tags.BlueTeam)
-                        {
-                            _agentActions.MoveTo(GameObject.Find(Names.RedFlag).transform.position);
-                        }
-                        else if (this.tag == Tags.RedTeam)
-                        {
-                            _agentActions.MoveTo(GameObject.Find(Names.BlueFlag).transform.position);
-                        }
                         chosenAction = 1;
                     }
                     break;
@@ -215,7 +175,6 @@ public class AI : MonoBehaviour
                 case 2:
                     if (_agentData.HasEnemyFlag)
                     {
-                        _agentActions.MoveTo(_agentData.FriendlyBase);
                         chosenAction = 2;
                     }
                     break;
@@ -227,7 +186,6 @@ public class AI : MonoBehaviour
                         {
                             if (!_agentInventory.HasItem(Names.HealthKit))
                             {
-                                _agentActions.MoveTo(objectsInView[i]);
                                 chosenAction = 3;
                             }
                         }
@@ -241,7 +199,6 @@ public class AI : MonoBehaviour
                         {
                             if (!_agentInventory.HasItem(Names.PowerUp))
                             {
-                                _agentActions.MoveTo(objectsInView[i]);
                                 chosenAction = 4;
                             }
                         }
@@ -249,8 +206,26 @@ public class AI : MonoBehaviour
                     break;
 
                 case 5:
-                    _agentActions.MoveToRandomLocation();
                     chosenAction = 5;
+                    break;
+                case 6:
+                    for (int i = 0; i < objectsInView.Count; i++)
+                    {
+                        if (objectsInView[i].name == Names.BlueFlag)
+                        {
+                            if (this.tag == Tags.BlueTeam)
+                            {
+                                chosenAction = 6;
+                            }
+                        }
+                        else if (objectsInView[i].name == Names.RedFlag)
+                        {
+                            if (this.tag == Tags.RedTeam)
+                            {
+                                chosenAction = 6;
+                            }
+                        }
+                    }
                     break;
 
                 default:
@@ -265,50 +240,358 @@ public class AI : MonoBehaviour
     {
         foreach (GameObject item in GameObject.FindGameObjectsWithTag(Tags.BlueTeam))
         {
-            item.transform.position = item.GetComponent<AI>().startpostion();
+            item.transform.position = item.GetComponent<AI>().startPostion();
         }
         foreach (GameObject item in GameObject.FindGameObjectsWithTag(Tags.RedTeam))
         {
-            item.transform.position = item.GetComponent<AI>().startpostion();
+            item.transform.position = item.GetComponent<AI>().startPostion();
         }
     }
 
-    public Vector3 startpostion()
+    public Vector3 startPostion()
     {
         if (_agentData.HasEnemyFlag)
         {
             if (this.tag == Tags.BlueTeam)
             {
-                _agentActions.DropItem(_agentInventory.GetItem(Names.RedFlag), new Vector3(0.5f, 1.0f, 21.4f));
+                _agentInventory.RemoveItem(Names.RedFlag);
+                GameObject.Find(Names.RedFlag).GetComponent<Flag>().ResetPositionRed();
             }
             if (this.tag == Tags.RedTeam)
             {
-                _agentActions.DropItem(_agentInventory.GetItem(Names.BlueFlag), new Vector3(0.18f, 1.0f, -22.11f));
+                _agentInventory.RemoveItem(Names.BlueFlag);
+                GameObject.Find(Names.BlueFlag).GetComponent<Flag>().ResetPositionBlue();
             }
         }
 
-        if(_agentData.HasFriendlyFlag)
+        if (_agentData.HasFriendlyFlag)
         {
             if (this.tag == Tags.BlueTeam)
             {
-                _agentActions.DropItem(_agentInventory.GetItem(Names.BlueFlag), new Vector3(0.18f, 1.0f, -22.11f));
+                GameObject.Find(Names.BlueFlag).GetComponent<Flag>().ResetPositionBlue();
             }
             if (this.tag == Tags.RedTeam)
             {
-                _agentActions.DropItem(_agentInventory.GetItem(Names.RedFlag), new Vector3(0.5f, 1.0f, 21.4f));
+                GameObject.Find(Names.RedFlag).GetComponent<Flag>().ResetPositionRed();
             }
         }
 
-        if(_agentInventory.HasItem(Names.HealthKit))
-        {
+        if (_agentInventory.HasItem(Names.HealthKit))
+        {            
             _agentActions.DropItem(_agentInventory.GetItem(Names.HealthKit));
+            GameObject.Find(Names.HealthKit).GetComponent<Collectable>().resetPosition();
         }
 
         if (_agentInventory.HasItem(Names.PowerUp))
         {
             _agentActions.DropItem(_agentInventory.GetItem(Names.PowerUp));
+            GameObject.Find(Names.PowerUp).GetComponent<Collectable>().resetPosition();
         }
+
+        if (hasWon)
+        {
+            BackpropagationIfWon();
+        }
+        else
+        {
+            BackpropagationIfLost();
+        }
+
+        _agentData.Heal(100);
+
         return startingPostion; 
     }
 
+    private void SelectionAndExpantion()
+    {
+        int option = ChooseRandomAction();
+
+        if (!currentNode.checkChildren(option))
+        {
+            MonteCarloTree.Node nodeToAdd = new MonteCarloTree.Node();
+            nodeToAdd.NodeOption = option;
+            currentNode.AddChild(nodeToAdd);
+        }
+
+        float highestUCB = -1.0f;
+        MonteCarloTree.Node testNode = currentNode;
+        for (int i = 0; i < currentNode.GetNumberOfChildren(); i++)
+        {
+            float UCB = UpperConfidenceBound(currentNode.GetChild(i));
+            if (highestUCB < UCB)
+            {
+                testNode = currentNode.GetChild(i);
+                highestUCB = UCB;
+            }
+        }
+        currentNode = testNode;
+        nodeOptions = (NodeOptions)currentNode.NodeOption;
+    }
+
+    private void Simulation(int option)
+    {
+        switch (option)
+        {
+
+            case 1:
+                if (this.tag == Tags.BlueTeam)
+                {
+                    _agentActions.MoveTo(GameObject.Find(Names.RedFlag).transform.position);
+                }
+                else if (this.tag == Tags.RedTeam)
+                {
+                    _agentActions.MoveTo(GameObject.Find(Names.BlueFlag).transform.position);
+                }
+                break;
+
+            case 2:
+                _agentActions.MoveTo(_agentData.FriendlyBase);
+                break;
+
+            case 3:
+                _agentActions.MoveTo(_agentSenses.GetObjectInViewByName(Names.HealthKit));
+                break;
+
+            case 4:
+                _agentActions.MoveTo(_agentSenses.GetObjectInViewByName(Names.PowerUp));
+                break;
+
+            case 5:
+                _agentActions.MoveToRandomLocation();
+                break;
+
+            case 6:
+                if (this.tag == Tags.BlueTeam)
+                {
+                    _agentActions.MoveTo(_agentSenses.GetObjectInViewByName(Names.BlueFlag));
+                }
+                else if (this.tag == Tags.RedTeam)
+                {
+                    _agentActions.MoveTo(_agentSenses.GetObjectInViewByName(Names.RedFlag));
+                }
+                break;
+
+            default:
+                break;
+        }
+    }
+
+    private void BackpropagationIfLost()
+    {
+        do
+        {
+            currentNode.VisitCount = currentNode.VisitCount + 1;
+            currentNode = currentNode.ParentNode;
+        } while (currentNode != null);
+        currentNode = rootNode;
+    }
+
+    private void BackpropagationIfWon()
+    {
+        do
+        {
+            currentNode.WinCount = currentNode.WinCount + 1;
+            currentNode.VisitCount = currentNode.VisitCount + 1;
+            currentNode = currentNode.ParentNode;
+        } while (currentNode != null);
+        currentNode = rootNode;
+    }
+
+    private void Checks()
+    {
+        if(_agentInventory.HasItem(Names.HealthKit))
+        {
+            if (_agentData.CurrentHitPoints <= 50)
+            {
+            _agentActions.UseItem(_agentInventory.GetItem(Names.HealthKit));
+            }
+        }
+
+        GameObject ObjectToCheck = _agentSenses.GetObjectInViewByName(Names.HealthKit);
+        if (ObjectToCheck != null)
+        {
+            if (!_agentInventory.HasItem(Names.HealthKit))
+            {
+                if (_agentSenses.IsItemInReach(ObjectToCheck))
+                {
+                    _agentActions.CollectItem(ObjectToCheck);
+                }
+            }
+        }
+
+        ObjectToCheck = _agentSenses.GetObjectInViewByName(Names.PowerUp);
+        if (ObjectToCheck != null)
+        {
+            if (!_agentInventory.HasItem(Names.PowerUp))
+            {
+                if (_agentSenses.IsItemInReach(ObjectToCheck))
+                {
+                    _agentActions.CollectItem(ObjectToCheck);
+                }
+            }
+        }
+
+        if (this.tag == Tags.BlueTeam)
+        {
+             ObjectToCheck = _agentSenses.GetObjectInViewByName(Names.RedFlag);
+
+            if (ObjectToCheck != null)
+            {
+                // _agentActions.MoveTo(ObjectToCheck);
+                if (_agentSenses.IsItemInReach(ObjectToCheck))
+                {
+                    _agentActions.CollectItem(ObjectToCheck);
+                }
+            }
+
+            ObjectToCheck = _agentSenses.GetObjectInViewByName(Names.BlueFlag);
+
+            if (ObjectToCheck != null)
+            {
+                // _agentActions.MoveTo(ObjectToCheck);
+                if (_agentSenses.IsItemInReach(ObjectToCheck))
+                {
+                    ObjectToCheck.GetComponent<Flag>().ResetPositionBlue();
+                }
+            }
+
+            if (_agentData.HasEnemyFlag)
+            {
+
+                if (Vector3.Distance(transform.position, _agentData.FriendlyBase.transform.position) <= 5.0f)
+                {
+                    // _agentActions.DropItem(_agentInventory.GetItem(Names.RedFlag), new Vector3(0.5f, 1.0f, 21.4f));
+                    _agentActions.DropItem(_agentInventory.GetItem(Names.RedFlag));
+                    hasWon = true;
+                    ResetPosition();
+                    hasWon = false;
+                    currentNode = rootNode;
+                    Debug.Log("win" + this.gameObject);
+                    MCTree.Traverse(rootNode);
+                }
+
+
+            }
+        }
+
+        if (this.tag == Tags.RedTeam)
+        {
+             ObjectToCheck = _agentSenses.GetObjectInViewByName(Names.BlueFlag);
+
+            if (ObjectToCheck != null)
+            {
+                // _agentActions.MoveTo(ObjectToCheck);
+                if (_agentSenses.IsItemInReach(ObjectToCheck))
+                {
+                    _agentActions.CollectItem(ObjectToCheck);
+                }
+            }
+
+            ObjectToCheck = _agentSenses.GetObjectInViewByName(Names.RedFlag);
+
+            if (ObjectToCheck != null)
+            {
+                // _agentActions.MoveTo(ObjectToCheck);
+                if (_agentSenses.IsItemInReach(ObjectToCheck))
+                {
+                    ObjectToCheck.GetComponent<Flag>().ResetPositionRed();
+                }
+            }
+
+            if (_agentData.HasEnemyFlag)
+            {
+
+                if (Vector3.Distance(transform.position, _agentData.FriendlyBase.transform.position) <= 5.0f)
+                {
+                    // _agentActions.DropItem(_agentInventory.GetItem(Names.BlueFlag), new Vector3(0.18f, 1.0f, -22.11f));
+                    _agentActions.DropItem(_agentInventory.GetItem(Names.BlueFlag));
+
+
+                    hasWon = true;
+                    ResetPosition();
+                    hasWon = false;
+                    Debug.Log("win" + this.gameObject);
+                    MCTree.Traverse(rootNode);
+                }
+            }
+        }
+    }
+
+    private void Battle()
+    {
+        if (!_agentData.HasEnemyFlag)
+        {
+            if (_agentSenses.GetEnemiesInView().Count > 0)
+            {
+                for (int i = 0; i < _agentSenses.GetEnemiesInView().Count; i++)
+                {
+                    if (_agentData.CurrentHitPoints > 50)
+                    {
+                        inBattle = true;
+                        if (_agentSenses.IsInAttackRange(_agentSenses.GetEnemiesInView()[i]))
+                        {
+
+                            _agentActions.UseItem(_agentInventory.GetItem(Names.PowerUp));
+                            _agentActions.AttackEnemy(_agentSenses.GetEnemiesInView()[i]);
+                        }
+                        else
+                        {
+                            _agentActions.MoveTo(_agentSenses.GetEnemiesInView()[i]);
+                        }
+                    }
+                    else if (_agentData.CurrentHitPoints <= 10)
+                    {
+                        if (_agentData.IsPoweredUp)
+                        {
+                            inBattle = true;
+                            _agentActions.AttackEnemy(_agentSenses.GetEnemiesInView()[i]);
+                        }
+                        else
+                        {
+                            _agentActions.Flee(_agentSenses.GetEnemiesInView()[i]);
+                        }
+                        inBattle = false;
+                    }
+                    else
+                    {
+                        if (_agentSenses.IsInAttackRange(_agentSenses.GetEnemiesInView()[i]))
+                        {
+                            inBattle = true;
+                            int RandomChanceToAttack = Random.Range(0, 2);
+                            if (RandomChanceToAttack == 0)
+                            {
+                                _agentActions.UseItem(_agentInventory.GetItem(Names.PowerUp));
+                                _agentActions.AttackEnemy(_agentSenses.GetEnemiesInView()[i]);
+                            }
+                            else
+                            {
+                                if (_agentData.IsPoweredUp)
+                                {
+                                    inBattle = true;
+                                    _agentActions.AttackEnemy(_agentSenses.GetEnemiesInView()[i]);
+                                }
+                                else
+                                {
+                                    _agentActions.Flee(_agentSenses.GetEnemiesInView()[i]);
+                                }
+                                inBattle = false;
+                            }
+                        }
+                        else
+                        {
+                            inBattle = false;
+                        }
+                    }
+                }
+            }
+            else
+            {
+                inBattle = false;
+            }
+        }
+        else
+        {
+            inBattle = false;
+        }
+    }
 }

@@ -25,7 +25,16 @@ public class SetScore : MonoBehaviour
         if(other.gameObject.name.Equals(EnemyFlag.name))
         {
             _enemyFlagInBase = true;
-            StartCoroutine(UpdateScore());
+            if (other.gameObject.name.Equals(Names.BlueFlag))
+            {
+                other.GetComponent<Flag>().ResetPositionBlue();
+            }
+            else if (other.gameObject.name.Equals(Names.RedFlag))
+            {
+                other.GetComponent<Flag>().ResetPositionRed();
+            }
+            Score++;
+            //StartCoroutine(UpdateScore());
             
         }
     }

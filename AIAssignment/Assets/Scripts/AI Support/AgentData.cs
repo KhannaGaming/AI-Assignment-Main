@@ -172,11 +172,24 @@ public class AgentData : MonoBehaviour
     /// </summary>
     public void Die()
     {
+        CurrentHitPoints = MaxHitPoints;
         _aiMood = AiMood.Dead;
         AgentActions actions = gameObject.GetComponent<AgentActions>();
 
         actions.DropAllItems();
-        Destroy(gameObject);
+        //Destroy(gameObject);
+        gameObject.GetComponent<UnityEngine.AI.NavMeshAgent>().enabled = false ;
+        //gameObject.GetComponent<AI>().Dead();
+        if (FriendlyTeam == Teams.BlueTeam)
+        {
+            transform.position = new Vector3(100.0f, 100.0f, 100.0f);
+        }
+        if (FriendlyTeam == Teams.RedTeam)
+        {
+            transform.position = new Vector3(-100.0f, 100.0f, 100.0f);
+        }
+
+        StartCoroutine(WaitForRevive());
     }
 
     /// <summary>
@@ -269,4 +282,16 @@ public class AgentData : MonoBehaviour
             _aiMood = AiMood.Idle;
         }
     }
+
+    System.Collections.IEnumerator WaitForRevive()
+    {
+        CurrentHitPoints = MaxHitPoints;
+
+        yield return new WaitForSeconds(3);
+        this.gameObject.transform.position = this.gameObject.GetComponent<AI>().startPostion();
+        this.gameObject.transform.position += new Vector3(0, 1.0f, 0);
+        gameObject.GetComponent<UnityEngine.AI.NavMeshAgent>().enabled = true;
+        _aiMood = AiMood.Idle;
+    }
+    
 }

@@ -44,6 +44,11 @@ public abstract class Collectable : MonoBehaviour
         gameObject.GetComponent<MeshRenderer>().enabled = true;
         gameObject.layer = LayerMask.NameToLayer("VisibleToAI");
         gameObject.transform.position = position;
+    }
+
+    public void resetPosition()
+    {
+        gameObject.transform.position = startingPosition;
 
     }
 }

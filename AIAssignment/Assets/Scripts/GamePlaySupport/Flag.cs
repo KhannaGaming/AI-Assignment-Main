@@ -39,15 +39,32 @@ public class Flag : Collectable
 
         // no longer raised
         Vector3 flagPosition = position;
-       // flagPosition.y -= flagRaiseAmount;
+        flagPosition.y -= flagRaiseAmount;
         gameObject.transform.position = flagPosition;
+        //if (this.gameObject.name.Equals(Names.BlueFlag))
+        //{
+        //    ResetPositionBlue();
+        //}
+        //else if (this.gameObject.name.Equals(Names.RedFlag))
+        //{
+        //    ResetPositionRed();
+        //}
+
         // Becomes visible to AIs and they know it's not carried
         gameObject.layer = LayerMask.NameToLayer("VisibleToAI");
     }
 
-    public void ResetPosition()
+    public void ResetPositionBlue()
     {
-        gameObject.transform.position = new Vector3(0.5f, 1.0f, 21.4f);
+        gameObject.transform.parent = null;
+        gameObject.transform.position = new Vector3(0.18f, 1.0f, -22.11f);
+        gameObject.layer = LayerMask.NameToLayer("VisibleToAI");
     }
-  
+    public void ResetPositionRed()
+    {
+        gameObject.transform.parent = null;
+        gameObject.transform.position = new Vector3(0.5f, 1.0f, 21.4f);
+        gameObject.layer = LayerMask.NameToLayer("VisibleToAI");
+    }
+
 }

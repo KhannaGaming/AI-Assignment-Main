@@ -277,11 +277,13 @@ public class AgentActions : MonoBehaviour
     }
     public bool IsAtDestination()
     {
-
-        if(_navAgent.remainingDistance <= 0.5f)
+        if (_navAgent.pathStatus != UnityEngine.AI.NavMeshPathStatus.PathInvalid)
         {
-            return true;
+            if (_navAgent.remainingDistance <= 0.5f)
+            {
+                return true;
+            }
         }
-        return false;
+            return false;
     }
 }

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace MonteCarloTree
 {
-    enum NodeOptions { Nothing, RandomMovement, HealthKit, PowerUp, haveEnemyFlag, dontHaveEnemyFlag, FriendlyFlag, FriendlyBase };
+    enum NodeOptions { Nothing, dontHaveEnemyFlag, haveEnemyFlag, HealthKit, PowerUp, RandomMovement, FriendlyFlag };
 
     public class Node
     {
@@ -105,7 +105,6 @@ namespace MonteCarloTree
                         Traverse(childToTraverse);
                 }
             }
-            UnityEngine.Debug.Log(currentNode);
         }
 
     }
