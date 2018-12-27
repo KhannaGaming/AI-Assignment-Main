@@ -82,7 +82,7 @@ using UnityEngine;
 
 public class AI : MonoBehaviour
 {
-    enum NodeOptions { Nothing,dontHaveEnemyFlag, haveEnemyFlag,   HealthKit, PowerUp,RandomMovement, FriendlyFlag};
+    enum NodeOptions { Nothing, dontHaveEnemyFlag, haveEnemyFlag, HealthKit, PowerUp, RandomMovement, FriendlyFlag };
     // Gives access to important data about the AI agent (see above)
     private AgentData _agentData;
     // Gives access to the agent senses
@@ -98,9 +98,18 @@ public class AI : MonoBehaviour
     private NodeOptions nodeOptions = NodeOptions.Nothing;
     private Vector3 startingPostion;
     private bool hasWon = false;
-    public float ExplorationFactor = 0.5f;
+    private float ExplorationFactor = 0.5f;
+    private bool isExploring = true;
 
     private bool inBattle = false;
+
+    private void Awake()
+    {
+        //if (Application.isEditor)
+        Application.runInBackground = true;
+
+    }
+
     // Use this for initialization
     void Start()
     {
@@ -117,38 +126,53 @@ public class AI : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        if(Input.GetKeyDown("e"))
+        if (Input.GetKeyDown("e"))
         {
             Time.timeScale += 1.0f;
-           //_agentData.Die();
+            //_agentData.Die();
         }
         if (Input.GetKeyDown("r"))
         {
             Time.timeScale = 1.0f;
         }
 
-
-        
-            if (!inBattle && _agentActions.IsAtDestination())
+        //To Test if Monte Carlo Tree works, switch off exploration
+        if (Input.GetKeyDown("t"))
+        {
+            if (ExplorationFactor == 0.0f)
             {
-                SelectionAndExpantion();
-                Simulation((int)nodeOptions);
+                ExplorationFactor = 0.5f;
             }
-       
-        Checks();
+            else
+            {
+                ExplorationFactor = 0.0f;
+            }
+            isExploring = !isExploring;
+            ResetPosition();
+            GameObject.Find("IsExploring").GetComponent<UnityEngine.UI.Text>().text = isExploring.ToString();
+        }
+
+
+        if (!inBattle && _agentActions.IsAtDestination())
+        {
+            SelectionAndExpantion();
+            Simulation((int)nodeOptions);
+        }
+
         Battle();
-       
+        Checks();
+
     }
 
     private float UpperConfidenceBound(MonteCarloTree.Node node)
     {
         float UCB = 0.0f;
-        
+
         if (node.VisitCount > 0)
         {
             UCB = (node.WinCount / node.VisitCount) + (ExplorationFactor * Mathf.Sqrt(Mathf.Log(node.ParentNode.VisitCount) / node.VisitCount));
         }
-        else
+        else if (isExploring)
         {
             UCB = int.MaxValue;
         }
@@ -241,10 +265,12 @@ public class AI : MonoBehaviour
         foreach (GameObject item in GameObject.FindGameObjectsWithTag(Tags.BlueTeam))
         {
             item.transform.position = item.GetComponent<AI>().startPostion();
+            item.GetComponent<AI>().ResetHealth();
         }
         foreach (GameObject item in GameObject.FindGameObjectsWithTag(Tags.RedTeam))
         {
             item.transform.position = item.GetComponent<AI>().startPostion();
+            item.GetComponent<AI>().ResetHealth();
         }
     }
 
@@ -277,7 +303,7 @@ public class AI : MonoBehaviour
         }
 
         if (_agentInventory.HasItem(Names.HealthKit))
-        {            
+        {
             _agentActions.DropItem(_agentInventory.GetItem(Names.HealthKit));
             GameObject.Find(Names.HealthKit).GetComponent<Collectable>().resetPosition();
         }
@@ -297,9 +323,12 @@ public class AI : MonoBehaviour
             BackpropagationIfLost();
         }
 
-        _agentData.Heal(100);
+        return startingPostion;
+    }
 
-        return startingPostion; 
+    public void ResetHealth()
+    {
+        _agentData.Heal(100);
     }
 
     private void SelectionAndExpantion()
@@ -399,11 +428,11 @@ public class AI : MonoBehaviour
 
     private void Checks()
     {
-        if(_agentInventory.HasItem(Names.HealthKit))
+        if (_agentInventory.HasItem(Names.HealthKit))
         {
             if (_agentData.CurrentHitPoints <= 50)
             {
-            _agentActions.UseItem(_agentInventory.GetItem(Names.HealthKit));
+                _agentActions.UseItem(_agentInventory.GetItem(Names.HealthKit));
             }
         }
 
@@ -433,11 +462,11 @@ public class AI : MonoBehaviour
 
         if (this.tag == Tags.BlueTeam)
         {
-             ObjectToCheck = _agentSenses.GetObjectInViewByName(Names.RedFlag);
+            ObjectToCheck = _agentSenses.GetObjectInViewByName(Names.RedFlag);
 
             if (ObjectToCheck != null)
             {
-                // _agentActions.MoveTo(ObjectToCheck);
+                //_agentActions.MoveTo(ObjectToCheck);
                 if (_agentSenses.IsItemInReach(ObjectToCheck))
                 {
                     _agentActions.CollectItem(ObjectToCheck);
@@ -448,7 +477,7 @@ public class AI : MonoBehaviour
 
             if (ObjectToCheck != null)
             {
-                // _agentActions.MoveTo(ObjectToCheck);
+                //_agentActions.MoveTo(ObjectToCheck);
                 if (_agentSenses.IsItemInReach(ObjectToCheck))
                 {
                     ObjectToCheck.GetComponent<Flag>().ResetPositionBlue();
@@ -457,7 +486,6 @@ public class AI : MonoBehaviour
 
             if (_agentData.HasEnemyFlag)
             {
-
                 if (Vector3.Distance(transform.position, _agentData.FriendlyBase.transform.position) <= 5.0f)
                 {
                     // _agentActions.DropItem(_agentInventory.GetItem(Names.RedFlag), new Vector3(0.5f, 1.0f, 21.4f));
@@ -467,20 +495,17 @@ public class AI : MonoBehaviour
                     hasWon = false;
                     currentNode = rootNode;
                     Debug.Log("win" + this.gameObject);
-                    MCTree.Traverse(rootNode);
                 }
-
-
             }
         }
 
         if (this.tag == Tags.RedTeam)
         {
-             ObjectToCheck = _agentSenses.GetObjectInViewByName(Names.BlueFlag);
+            ObjectToCheck = _agentSenses.GetObjectInViewByName(Names.BlueFlag);
 
             if (ObjectToCheck != null)
             {
-                // _agentActions.MoveTo(ObjectToCheck);
+                //_agentActions.MoveTo(ObjectToCheck);
                 if (_agentSenses.IsItemInReach(ObjectToCheck))
                 {
                     _agentActions.CollectItem(ObjectToCheck);
@@ -491,7 +516,7 @@ public class AI : MonoBehaviour
 
             if (ObjectToCheck != null)
             {
-                // _agentActions.MoveTo(ObjectToCheck);
+                //_agentActions.MoveTo(ObjectToCheck);
                 if (_agentSenses.IsItemInReach(ObjectToCheck))
                 {
                     ObjectToCheck.GetComponent<Flag>().ResetPositionRed();
@@ -505,13 +530,10 @@ public class AI : MonoBehaviour
                 {
                     // _agentActions.DropItem(_agentInventory.GetItem(Names.BlueFlag), new Vector3(0.18f, 1.0f, -22.11f));
                     _agentActions.DropItem(_agentInventory.GetItem(Names.BlueFlag));
-
-
                     hasWon = true;
                     ResetPosition();
                     hasWon = false;
                     Debug.Log("win" + this.gameObject);
-                    MCTree.Traverse(rootNode);
                 }
             }
         }
@@ -527,10 +549,9 @@ public class AI : MonoBehaviour
                 {
                     if (_agentData.CurrentHitPoints > 50)
                     {
-                        inBattle = true;
                         if (_agentSenses.IsInAttackRange(_agentSenses.GetEnemiesInView()[i]))
                         {
-
+                            inBattle = true;
                             _agentActions.UseItem(_agentInventory.GetItem(Names.PowerUp));
                             _agentActions.AttackEnemy(_agentSenses.GetEnemiesInView()[i]);
                         }
@@ -556,10 +577,10 @@ public class AI : MonoBehaviour
                     {
                         if (_agentSenses.IsInAttackRange(_agentSenses.GetEnemiesInView()[i]))
                         {
-                            inBattle = true;
                             int RandomChanceToAttack = Random.Range(0, 2);
                             if (RandomChanceToAttack == 0)
                             {
+                                inBattle = true;
                                 _agentActions.UseItem(_agentInventory.GetItem(Names.PowerUp));
                                 _agentActions.AttackEnemy(_agentSenses.GetEnemiesInView()[i]);
                             }
@@ -573,8 +594,8 @@ public class AI : MonoBehaviour
                                 else
                                 {
                                     _agentActions.Flee(_agentSenses.GetEnemiesInView()[i]);
+                                    inBattle = false;
                                 }
-                                inBattle = false;
                             }
                         }
                         else
