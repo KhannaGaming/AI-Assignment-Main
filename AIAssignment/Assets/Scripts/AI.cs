@@ -445,6 +445,10 @@ public class AI : MonoBehaviour
                 {
                     _agentActions.CollectItem(ObjectToCheck);
                 }
+                else if(Vector3.Distance(transform.position, ObjectToCheck.transform.position) < 7.0f)
+                {
+                    _agentActions.MoveTo(ObjectToCheck);
+                }
             }
         }
 
@@ -457,6 +461,10 @@ public class AI : MonoBehaviour
                 {
                     _agentActions.CollectItem(ObjectToCheck);
                 }
+                else if (Vector3.Distance(transform.position, ObjectToCheck.transform.position) < 7.0f)
+                {
+                    _agentActions.MoveTo(ObjectToCheck);
+                }
             }
         }
 
@@ -466,7 +474,6 @@ public class AI : MonoBehaviour
 
             if (ObjectToCheck != null)
             {
-                //_agentActions.MoveTo(ObjectToCheck);
                 if (_agentSenses.IsItemInReach(ObjectToCheck))
                 {
                     _agentActions.CollectItem(ObjectToCheck);
@@ -477,7 +484,6 @@ public class AI : MonoBehaviour
 
             if (ObjectToCheck != null)
             {
-                //_agentActions.MoveTo(ObjectToCheck);
                 if (_agentSenses.IsItemInReach(ObjectToCheck))
                 {
                     ObjectToCheck.GetComponent<Flag>().ResetPositionBlue();
@@ -488,7 +494,6 @@ public class AI : MonoBehaviour
             {
                 if (Vector3.Distance(transform.position, _agentData.FriendlyBase.transform.position) <= 5.0f)
                 {
-                    // _agentActions.DropItem(_agentInventory.GetItem(Names.RedFlag), new Vector3(0.5f, 1.0f, 21.4f));
                     _agentActions.DropItem(_agentInventory.GetItem(Names.RedFlag));
                     hasWon = true;
                     ResetPosition();
@@ -505,7 +510,6 @@ public class AI : MonoBehaviour
 
             if (ObjectToCheck != null)
             {
-                //_agentActions.MoveTo(ObjectToCheck);
                 if (_agentSenses.IsItemInReach(ObjectToCheck))
                 {
                     _agentActions.CollectItem(ObjectToCheck);
@@ -516,7 +520,6 @@ public class AI : MonoBehaviour
 
             if (ObjectToCheck != null)
             {
-                //_agentActions.MoveTo(ObjectToCheck);
                 if (_agentSenses.IsItemInReach(ObjectToCheck))
                 {
                     ObjectToCheck.GetComponent<Flag>().ResetPositionRed();
@@ -528,7 +531,6 @@ public class AI : MonoBehaviour
 
                 if (Vector3.Distance(transform.position, _agentData.FriendlyBase.transform.position) <= 5.0f)
                 {
-                    // _agentActions.DropItem(_agentInventory.GetItem(Names.BlueFlag), new Vector3(0.18f, 1.0f, -22.11f));
                     _agentActions.DropItem(_agentInventory.GetItem(Names.BlueFlag));
                     hasWon = true;
                     ResetPosition();
@@ -543,6 +545,7 @@ public class AI : MonoBehaviour
     {
         if (!_agentData.HasEnemyFlag)
         {
+            GameObject checkFlag;
             if (_agentSenses.GetEnemiesInView().Count > 0)
             {
                 for (int i = 0; i < _agentSenses.GetEnemiesInView().Count; i++)
@@ -555,9 +558,37 @@ public class AI : MonoBehaviour
                             _agentActions.UseItem(_agentInventory.GetItem(Names.PowerUp));
                             _agentActions.AttackEnemy(_agentSenses.GetEnemiesInView()[i]);
                         }
-                        else
+                        else if(this.tag == Tags.BlueTeam)
                         {
-                            _agentActions.MoveTo(_agentSenses.GetEnemiesInView()[i]);
+                            checkFlag = _agentSenses.GetObjectInViewByName(Names.RedFlag);
+                            if(checkFlag!= null)
+                            {
+                                if (Vector3.Distance(transform.position, checkFlag.transform.position) < Vector3.Distance(transform.position, _agentSenses.GetEnemiesInView()[i].transform.position))
+                                {
+                                    _agentActions.MoveTo(checkFlag);
+                                }
+                            }
+                            else
+                            {
+                                inBattle = true;
+                                _agentActions.MoveTo(_agentSenses.GetEnemiesInView()[i]);
+                            }
+                        }
+                        else if (this.tag == Tags.RedTeam)
+                        {
+                            checkFlag = _agentSenses.GetObjectInViewByName(Names.BlueFlag);
+                            if (checkFlag != null)
+                            {
+                                if (Vector3.Distance(transform.position, checkFlag.transform.position) < Vector3.Distance(transform.position, _agentSenses.GetEnemiesInView()[i].transform.position))
+                                {
+                                    _agentActions.MoveTo(checkFlag);
+                                }
+                            }
+                            else
+                            {
+                                inBattle = true;
+                                _agentActions.MoveTo(_agentSenses.GetEnemiesInView()[i]);
+                            }
                         }
                     }
                     else if (_agentData.CurrentHitPoints <= 10)
@@ -569,9 +600,18 @@ public class AI : MonoBehaviour
                         }
                         else
                         {
-                            _agentActions.Flee(_agentSenses.GetEnemiesInView()[i]);
+                            int RandomChanceToAttack = Random.Range(0, 100) + 1;
+                            if (RandomChanceToAttack > 35)
+                            {
+                                inBattle = true;
+                                _agentActions.AttackEnemy(_agentSenses.GetEnemiesInView()[i]);
+                            }
+                            else
+                            {
+                                inBattle = false;
+                                _agentActions.Flee(_agentSenses.GetEnemiesInView()[i]);
+                            }
                         }
-                        inBattle = false;
                     }
                     else
                     {
@@ -593,7 +633,15 @@ public class AI : MonoBehaviour
                                 }
                                 else
                                 {
+                                    int RandomChanceToFlee = Random.Range(0, 2);
+                                    if (RandomChanceToFlee == 0)
+                                    {
+                                        _agentActions.MoveToRandomLocation();
+                                    }
+                                    else
+                                    {
                                     _agentActions.Flee(_agentSenses.GetEnemiesInView()[i]);
+                                    }
                                     inBattle = false;
                                 }
                             }
