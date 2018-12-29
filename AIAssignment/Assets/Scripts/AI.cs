@@ -444,8 +444,9 @@ public class AI : MonoBehaviour
                 if (_agentSenses.IsItemInReach(ObjectToCheck))
                 {
                     _agentActions.CollectItem(ObjectToCheck);
+                    Simulation((int)nodeOptions);
                 }
-                else if(Vector3.Distance(transform.position, ObjectToCheck.transform.position) < 7.0f)
+                else if (Vector3.Distance(transform.position, ObjectToCheck.transform.position) < 7.0f)
                 {
                     _agentActions.MoveTo(ObjectToCheck);
                 }
@@ -460,6 +461,7 @@ public class AI : MonoBehaviour
                 if (_agentSenses.IsItemInReach(ObjectToCheck))
                 {
                     _agentActions.CollectItem(ObjectToCheck);
+                    Simulation((int)nodeOptions);
                 }
                 else if (Vector3.Distance(transform.position, ObjectToCheck.transform.position) < 7.0f)
                 {
@@ -477,6 +479,7 @@ public class AI : MonoBehaviour
                 if (_agentSenses.IsItemInReach(ObjectToCheck))
                 {
                     _agentActions.CollectItem(ObjectToCheck);
+                    Simulation((int)nodeOptions);
                 }
             }
 
@@ -487,6 +490,7 @@ public class AI : MonoBehaviour
                 if (_agentSenses.IsItemInReach(ObjectToCheck))
                 {
                     ObjectToCheck.GetComponent<Flag>().ResetPositionBlue();
+                    Simulation((int)nodeOptions);
                 }
             }
 
@@ -513,6 +517,7 @@ public class AI : MonoBehaviour
                 if (_agentSenses.IsItemInReach(ObjectToCheck))
                 {
                     _agentActions.CollectItem(ObjectToCheck);
+                    Simulation((int)nodeOptions);
                 }
             }
 
@@ -523,6 +528,7 @@ public class AI : MonoBehaviour
                 if (_agentSenses.IsItemInReach(ObjectToCheck))
                 {
                     ObjectToCheck.GetComponent<Flag>().ResetPositionRed();
+                    Simulation((int)nodeOptions);
                 }
             }
 
